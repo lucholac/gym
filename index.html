@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Training">
+<meta name="theme-color" content="#080810">
+<title>Training Log</title>
+<link id="mfst" rel="manifest">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+html,body{height:100%;background:#06060F;color:#FFFFFF;font-family:'Barlow',sans-serif;overscroll-behavior:none;font-size:16px}
+#app{min-height:100vh;padding-bottom:60px}
+input{background:#12121E;border:1.5px solid #222236;border-radius:8px;color:#FFFFFF;font-family:'Barlow',sans-serif;font-size:15px;padding:11px 12px;-webkit-appearance:none;width:100%}
+input::placeholder{color:#555566}
+input:focus{outline:none;border-color:#444460}
+button{font-family:'Barlow Condensed',sans-serif;cursor:pointer;border:none}
+button:active{transform:scale(0.95);opacity:0.8}
+.bar-track{height:3px;background:#141428;border-radius:2px;margin-top:12px}
+.bar-fill{height:100%;border-radius:2px;transition:width .5s}
+.scroll-x{display:flex;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;gap:8px}
+.scroll-x::-webkit-scrollbar{display:none}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.up{animation:up .28s ease}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .7s linear infinite;display:inline-block}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;display:flex;flex-direction:column;justify-content:flex-end}
+.sheet{background:#0D0D1E;border-top:2px solid #1A1A30;border-radius:20px 20px 0 0;padding:22px 18px;max-height:92vh;overflow-y:auto}
+.card{background:#0D0D1C;border:1.5px solid #181826;border-radius:13px;overflow:hidden;margin-bottom:11px}
+.card-head{padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.ex-body{padding:0 14px 14px;border-top:1.5px solid #111120}
+.desc-box{margin:10px 0 10px;padding:12px 13px;background:#090918;border-radius:8px;font-size:14px;color:#CCCCCC;line-height:1.65}
+.yt-btn{display:flex;align-items:center;gap:8px;padding:11px 16px;background:#FF0000;border-radius:9px;color:#FFFFFF;font-weight:700;font-size:15px;font-family:'Barlow',sans-serif;letter-spacing:.3px;margin-bottom:12px;text-decoration:none;width:100%;justify-content:center}
+.set-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #0D0D1C;flex-wrap:wrap}
+.set-input-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.add-btn{padding:11px 16px;border-radius:8px;color:#000;font-weight:900;font-size:15px;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;letter-spacing:.5px}
+.tab-btn{padding:8px 18px;border-radius:22px;font-size:13px;font-weight:800;letter-spacing:1px;font-family:'Barlow Condensed',sans-serif}
+.hist-week{background:#0C0C1A;border-radius:11px;overflow:hidden;border:1.5px solid #111120;margin-bottom:13px}
+.hist-head{padding:12px 14px;background:#0F0F1E;display:flex;justify-content:space-between;align-items:center}
+.hist-day{padding:10px 14px;border-bottom:1px solid #0D0D1C}
+.set-badge{font-size:12px;padding:3px 9px;background:#111120;border-radius:20px;color:#888899}
+.ai-equip{flex:1;padding:14px;border-radius:10px;font-weight:700;font-size:15px;font-family:'Barlow Condensed',sans-serif}
+.ai-ex-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #111120}
+.ai-btn-row{display:flex;gap:9px;margin-top:16px}
+.pill{flex:0 0 auto;min-width:54px;padding:9px 5px;border-radius:10px;text-align:center;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+document.getElementById('mfst').href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify({name:"Training Log",short_name:"Training",start_url:".",display:"standalone",background_color:"#06060F",theme_color:"#06060F",icons:[{src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%2306060F" rx="22"/><text y=".9em" font-size="80" x="10">🏋</text></svg>'),sizes:"any",type:"image/svg+xml"}]}));
+
+const DAYS=['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'];
+const DAY_FULL={LUN:'LUNES',MAR:'MARTES',MIÉ:'MIÉRCOLES',JUE:'JUEVES',VIE:'VIERNES',SÁB:'SÁBADO',DOM:'DOMINGO'};
+const DAY_SUB={LUN:'🏠 Casa · Mini Gym',MAR:'😴 Descanso',MIÉ:'🏋️ Gym · Equipo completo',JUE:'🌙 Gym · Noche',VIE:'🏠 Casa · Sin piernas',SÁB:'⚽ Fútbol',DOM:'⚽ Fútbol / Descanso'};
+const REST_DAYS=new Set(['MAR','SÁB','DOM']);
+const WC={LUN:'#FF6B35',MAR:'#4ECDC4',MIÉ:'#A855F7',JUE:'#06B6D4',VIE:'#22C55E',SÁB:'#EAB308',DOM:'#EF4444'};
+const MC={'Pecho':'#FF6B35','Pecho alto':'#FF8C5A','Espalda ancha':'#06B6D4','Espalda media':'#0EA5E9','Espalda':'#38BDF8','Hombros':'#A855F7','Bíceps':'#EC4899','Tríceps':'#F59E0B','Cuádriceps':'#22C55E','Glúteos':'#14B8A6','Core':'#EAB308','Cardio':'#EF4444','Full Pierna':'#84CC16','Isquiotibiales':'#10B981','Gemelos':'#6EE7B7','Cuádriceps/Glúteos':'#34D399','Glúteos/Cuád':'#2DD4BF','Braquial':'#F472B6','Dorsal/Serrato':'#67E8F9','Bíceps pico':'#FB7185'};
+const LOGS_KEY='ft-logs-v3',CUSTOM_KEY='ft-custom-v3',KEY_KEY='ft-apikey';
+
+const PLANS={
+  LUN:{label:'EMPUJE SUPERIOR + CARDIO',tip:'💪 Marcá el ritmo de la semana.',exercises:[
+    {id:'L1',name:'Press Mancuernas Inclinado',sets:4,reps:'10',muscle:'Pecho alto',type:'incline_press',yt:'press+mancuernas+inclinado+tutorial+como+hacer',desc:'Banco a 45°. Empujá las mancuernas arriba y hacia adentro. Controlá la bajada en 3 segundos.'},
+    {id:'L2',name:'Press Mancuernas Plano',sets:4,reps:'10',muscle:'Pecho',type:'bench_press',yt:'press+mancuernas+plano+como+hacer+tutorial',desc:'Banco plano. Codos a 45° del torso. Empujá arriba juntando levemente las mancuernas.'},
+    {id:'L3',name:'Aperturas con Mancuernas',sets:3,reps:'12',muscle:'Pecho',type:'fly',yt:'aperturas+mancuernas+pecho+tutorial',desc:'Brazos abiertos como un abrazo. Ligera flexión de codo fija durante todo el movimiento.'},
+    {id:'L4',name:'Press Militar Mancuernas',sets:4,reps:'10',muscle:'Hombros',type:'shoulder_press',yt:'press+militar+mancuernas+hombros+tutorial',desc:'De pie, espalda recta. Empujá arriba sin arquear la zona lumbar.'},
+    {id:'L5',name:'Elevaciones Laterales',sets:3,reps:'15',muscle:'Hombros',type:'lateral_raise',yt:'elevaciones+laterales+hombros+tutorial+correcto',desc:'Codo levemente doblado. Subí solo hasta la altura del hombro. Sin balanceo del cuerpo.'},
+    {id:'L6',name:'Fondos entre Sillas',sets:4,reps:'12',muscle:'Tríceps',type:'dip',yt:'fondos+triceps+silla+como+hacer',desc:'Manos en silla atrás. Bajá doblando codos a 90° y subí extendiendo. Cuerpo cerca de la silla.'},
+    {id:'L7',name:'Extensión Tríceps Mancuerna',sets:3,reps:'12',muscle:'Tríceps',type:'tricep_ext',yt:'extension+triceps+mancuerna+detras+cabeza+tutorial',desc:'Mancuerna sobre la cabeza. Bajá detrás de la nuca doblando el codo y extendé completamente.'},
+    {id:'L8',name:'HIIT — burpees y mountain climbers',sets:1,reps:'15 min',muscle:'Cardio',type:'cardio',isCardio:true,yt:'HIIT+casa+burpees+mountain+climbers+15+minutos',desc:'Bloques de 40s esfuerzo / 20s descanso. Burpees, mountain climbers, saltos en el lugar.'},
+  ]},
+  MAR:{label:'DESCANSO ACTIVO',tip:'🧘 La recuperación también es entrenamiento.',exercises:[]},
+  MIÉ:{label:'PIERNAS + CORE',tip:'🦵 Piernas fuertes = más potencia en el fútbol.',exercises:[
+    {id:'M1',name:'Calentamiento — Bici o Trotadora',sets:1,reps:'10 min',muscle:'Cardio',type:'cardio',isCardio:true,yt:'calentamiento+bicicleta+estática+gym',desc:'Ritmo moderado. Activá las piernas antes de cargar peso.'},
+    {id:'M2',name:'Prensa de Piernas',sets:4,reps:'12',muscle:'Cuádriceps/Glúteos',type:'leg_press',yt:'prensa+de+piernas+tecnica+correcta+tutorial',desc:'Pies al ancho de hombros. Bajá controlado y empujá sin bloquear las rodillas arriba.'},
+    {id:'M3',name:'Sentadilla Goblet',sets:4,reps:'12',muscle:'Full Pierna',type:'goblet_squat',yt:'sentadilla+goblet+mancuerna+como+hacer+tutorial',desc:'Mancuerna en el pecho. Bajá despacio con espalda recta. Rodillas hacia afuera.'},
+    {id:'M4',name:'Estocadas Caminando',sets:3,reps:'12 por pierna',muscle:'Glúteos/Cuád',type:'lunge',yt:'estocadas+caminando+lunges+tutorial',desc:'Paso largo adelante. Rodilla trasera casi toca el piso. Torso siempre erguido.'},
+    {id:'M5',name:'Curl Femoral Máquina',sets:4,reps:'12',muscle:'Isquiotibiales',type:'leg_curl',yt:'curl+femoral+maquina+isquiotibiales+tecnica',desc:'Curvá los talones hacia los glúteos de forma controlada. Caderas pegadas a la almohadilla.'},
+    {id:'M6',name:'Extensión Cuádriceps Máquina',sets:4,reps:'12',muscle:'Cuádriceps',type:'leg_ext',yt:'extension+cuadriceps+maquina+tutorial',desc:'Extendé completamente. Mantené 1 segundo arriba y bajá controlado.'},
+    {id:'M7',name:'Hip Thrust',sets:4,reps:'12',muscle:'Glúteos',type:'hip_thrust',yt:'hip+thrust+gluteos+como+hacer+tutorial',desc:'Hombros en banco. Mancuerna o barra en la cadera. Empujá al techo apretando glúteos.'},
+    {id:'M8',name:'Pantorrillas en Prensa',sets:4,reps:'15',muscle:'Gemelos',type:'calf_raise',yt:'pantorrillas+prensa+gemelos+ejercicio+tutorial',desc:'Solo la punta del pie en la plataforma. Extendé completamente y bajá hasta el estiramiento.'},
+    {id:'M9',name:'Plancha Frontal',sets:3,reps:'45 seg',muscle:'Core',type:'plank',yt:'plancha+abdominal+tecnica+correcta+tutorial',desc:'Cuerpo recto de talón a cabeza. Core apretado, respirá. Si superás 45s, sumá variación.'},
+    {id:'M10',name:'Bici Moderada — Enfriamiento',sets:1,reps:'15 min',muscle:'Cardio',type:'cardio',isCardio:true,yt:'enfriamiento+cardio+bicicleta+post+entreno',desc:'Ritmo suave para bajar pulsaciones y drenar lactato de las piernas.'},
+  ]},
+  JUE:{label:'ESPALDA + BÍCEPS + CARDIO',tip:'🎯 Espalda ancha, postura de crack.',exercises:[
+    {id:'J1',name:'Jalón al Pecho / Dominadas',sets:4,reps:'10',muscle:'Espalda ancha',type:'pulldown',yt:'jalon+al+pecho+dominadas+espalda+tutorial',desc:'Agarre prono. Jalá el pecho hacia la barra, no la cabeza hacia el pecho. Codos hacia abajo.'},
+    {id:'J2',name:'Remo con Barra',sets:4,reps:'10',muscle:'Espalda media',type:'barbell_row',yt:'remo+con+barra+espalda+tecnica+correcta',desc:'Inclinado ~45°. Jalá la barra al ombligo. Apretá los omóplatos al final del movimiento.'},
+    {id:'J3',name:'Remo Mancuerna Unilateral',sets:3,reps:'12 por lado',muscle:'Espalda',type:'row',yt:'remo+mancuerna+unilateral+espalda+tutorial',desc:'Rodilla y mano apoyadas en banco. Jalá la mancuerna al costado de la cadera.'},
+    {id:'J4',name:'Pullover con Mancuerna',sets:3,reps:'12',muscle:'Dorsal/Serrato',type:'pullover',yt:'pullover+mancuerna+dorsal+serrato+tutorial',desc:'Tumbado en banco. Mancuerna sobre el pecho. Bajá detrás de la cabeza con brazos semi extendidos.'},
+    {id:'J5',name:'Curl con Barra EZ',sets:4,reps:'10',muscle:'Bíceps',type:'curl',yt:'curl+barra+EZ+biceps+como+hacer',desc:'Codos pegados al cuerpo. Curvá hacia los hombros sin moverlos. Bajada controlada.'},
+    {id:'J6',name:'Curl Martillo Mancuernas',sets:3,reps:'12',muscle:'Braquial',type:'curl',yt:'curl+martillo+mancuernas+braquial+tutorial',desc:'Agarre neutro (pulgar arriba). Sin girar la muñeca. Trabaja bíceps y braquial.'},
+    {id:'J7',name:'Curl Concentrado',sets:3,reps:'12 por lado',muscle:'Bíceps pico',type:'curl',yt:'curl+concentrado+biceps+pico+tutorial',desc:'Sentado. Codo apoyado en el muslo. Curvá lentamente. Máxima contracción arriba.'},
+    {id:'J8',name:'Elíptica o Trotadora',sets:1,reps:'20 min',muscle:'Cardio',type:'cardio',isCardio:true,yt:'eliptica+tecnica+correcta+cardio+tutorial',desc:'Ritmo moderado-alto. Podés hablar pero con esfuerzo. Zona cardíaca 2-3.'},
+  ]},
+  VIE:{label:'UPPER LIGERO + CORE',tip:'✅ Último entreno antes del fútbol. Cargás pilas.',exercises:[
+    {id:'V1',name:'Flexiones de Brazos variadas',sets:3,reps:'15',muscle:'Pecho',type:'pushup',yt:'flexiones+brazos+variaciones+tutorial+completo',desc:'5 normales + 5 cerradas (tríceps) + 5 inclinadas por serie. Sin pausa entre tipos.'},
+    {id:'V2',name:'Press Mancuernas Liviano',sets:3,reps:'15',muscle:'Pecho',type:'bench_press',yt:'press+mancuernas+plano+ligero+tecnica',desc:'30-40% menos peso que el lunes. Sentí el pecho trabajar, no empujés con inercia.'},
+    {id:'V3',name:'Remo Mancuerna Liviano',sets:3,reps:'15',muscle:'Espalda',type:'row',yt:'remo+mancuerna+espalda+tutorial',desc:'Igual al jueves pero más liviano. Enfocate en sentir la contracción de la espalda.'},
+    {id:'V4',name:'Elevaciones Laterales',sets:3,reps:'15',muscle:'Hombros',type:'lateral_raise',yt:'elevaciones+laterales+hombros+tecnica+correcto',desc:'Peso liviano. Movimiento controlado. Sin balanceo de torso.'},
+    {id:'V5',name:'Curl Bíceps Liviano',sets:3,reps:'15',muscle:'Bíceps',type:'curl',yt:'curl+biceps+mancuernas+tecnica+tutorial',desc:'Liviano y lento. Sentí el bíceps trabajar en todo el recorrido.'},
+    {id:'V6',name:'Fondos o Patada de Tríceps',sets:3,reps:'15',muscle:'Tríceps',type:'tricep_ext',yt:'fondos+triceps+silla+patada+mancuerna',desc:'Fondos en silla o patadas con mancuerna liviana. Extendé el brazo completamente.'},
+    {id:'V7',name:'Plancha + Russian Twist',sets:3,reps:'40 seg + 20 reps',muscle:'Core',type:'plank',yt:'plancha+russian+twist+core+abdominales+tutorial',desc:'Plancha 40 segundos seguido de 20 Russian twist. Sin descanso entre los dos.'},
+    {id:'V8',name:'Cardio Suave',sets:1,reps:'15 min',muscle:'Cardio',type:'cardio',isCardio:true,yt:'cardio+suave+casa+saltar+soga+caminata',desc:'Soga, caminata rápida o bici. Ritmo bajo. No agotes las piernas antes del fútbol.'},
+  ]},
+  SÁB:{label:'⚽ DÍA DE FÚTBOL',tip:'⚽ El fútbol ES el entrenamiento. Corré, competí, disfrutá.',exercises:[]},
+  DOM:{label:'RECUPERACIÓN TOTAL',tip:'🛁 El descanso también es training. Mañana volvés más fuerte.',exercises:[]},
+};
+
+function illus(type,color,size){
+  size=size||44;const c=color||'#888';
+  const sw=`stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+  const shapes={
+    bench_press:`<circle cx="28" cy="11" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="15" x2="28" y2="34" ${sw}/><line x1="28" y1="22" x2="12" y2="28" ${sw}/><line x1="28" y1="22" x2="44" y2="28" ${sw}/><line x1="12" y1="28" x2="8" y2="18" ${sw}/><line x1="44" y1="28" x2="48" y2="18" ${sw}/><line x1="28" y1="34" x2="20" y2="48" ${sw}/><line x1="28" y1="34" x2="36" y2="48" ${sw}/><rect x="4" y="15" width="7" height="5" rx="1.5" fill="${c}" opacity=".5"/><rect x="45" y="15" width="7" height="5" rx="1.5" fill="${c}" opacity=".5"/>`,
+    incline_press:`<circle cx="18" cy="10" r="4" stroke="${c}" stroke-width="2"/><line x1="18" y1="14" x2="26" y2="34" ${sw}/><line x1="20" y1="21" x2="8" y2="27" ${sw}/><line x1="20" y1="21" x2="38" y2="15" ${sw}/><line x1="38" y1="15" x2="36" y2="5" ${sw}/><line x1="8" y1="27" x2="6" y2="17" ${sw}/><line x1="26" y1="34" x2="18" y2="50" ${sw}/><line x1="26" y1="34" x2="36" y2="46" ${sw}/><rect x="32" y="2" width="8" height="5" rx="1.5" fill="${c}" opacity=".5"/><rect x="2" y="14" width="7" height="5" rx="1.5" fill="${c}" opacity=".5"/>`,
+    fly:`<circle cx="28" cy="11" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="15" x2="28" y2="34" ${sw}/><line x1="28" y1="22" x2="6" y2="30" ${sw}/><line x1="28" y1="22" x2="50" y2="30" ${sw}/><line x1="28" y1="34" x2="20" y2="48" ${sw}/><line x1="28" y1="34" x2="36" y2="48" ${sw}/><circle cx="5" cy="30" r="4" fill="${c}" opacity=".4"/><circle cx="51" cy="30" r="4" fill="${c}" opacity=".4"/>`,
+    shoulder_press:`<circle cx="28" cy="9" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="13" x2="28" y2="34" ${sw}/><line x1="28" y1="20" x2="14" y2="26" ${sw}/><line x1="28" y1="20" x2="42" y2="26" ${sw}/><line x1="14" y1="26" x2="12" y2="12" ${sw}/><line x1="42" y1="26" x2="44" y2="12" ${sw}/><line x1="28" y1="34" x2="20" y2="50" ${sw}/><line x1="28" y1="34" x2="36" y2="50" ${sw}/><rect x="8" y="8" width="6" height="5" rx="1.5" fill="${c}" opacity=".5"/><rect x="42" y="8" width="6" height="5" rx="1.5" fill="${c}" opacity=".5"/>`,
+    lateral_raise:`<circle cx="28" cy="9" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="13" x2="28" y2="34" ${sw}/><line x1="28" y1="21" x2="7" y2="21" ${sw}/><line x1="28" y1="21" x2="49" y2="21" ${sw}/><line x1="28" y1="34" x2="20" y2="50" ${sw}/><line x1="28" y1="34" x2="36" y2="50" ${sw}/><circle cx="6" cy="21" r="4" fill="${c}" opacity=".4"/><circle cx="50" cy="21" r="4" fill="${c}" opacity=".4"/>`,
+    tricep_ext:`<circle cx="28" cy="9" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="13" x2="28" y2="33" ${sw}/><line x1="28" y1="20" x2="16" y2="28" ${sw}/><line x1="28" y1="20" x2="40" y2="20" ${sw}/><line x1="40" y1="20" x2="38" y2="40" ${sw}/><line x1="28" y1="33" x2="20" y2="50" ${sw}/><line x1="28" y1="33" x2="36" y2="50" ${sw}/><circle cx="46" cy="10" r="4" fill="${c}" opacity=".4"/>`,
+    dip:`<circle cx="28" cy="13" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="17" x2="28" y2="36" ${sw}/><line x1="28" y1="23" x2="13" y2="23" ${sw}/><line x1="28" y1="23" x2="43" y2="23" ${sw}/><line x1="13" y1="23" x2="13" y2="40" ${sw}/><line x1="43" y1="23" x2="43" y2="40" ${sw}/><line x1="28" y1="36" x2="22" y2="52" ${sw}/><line x1="28" y1="36" x2="34" y2="52" ${sw}/><line x1="6" y1="40" x2="20" y2="40" stroke="${c}" stroke-width="3" opacity=".4"/><line x1="36" y1="40" x2="50" y2="40" stroke="${c}" stroke-width="3" opacity=".4"/>`,
+    pulldown:`<line x1="6" y1="4" x2="50" y2="4" stroke="${c}" stroke-width="2" opacity=".4"/><line x1="28" y1="4" x2="28" y2="16" stroke="${c}" stroke-width="1.5" opacity=".3"/><circle cx="28" cy="20" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="24" x2="28" y2="42" ${sw}/><line x1="28" y1="29" x2="10" y2="19" ${sw}/><line x1="28" y1="29" x2="46" y2="19" ${sw}/><line x1="28" y1="42" x2="20" y2="54" ${sw}/><line x1="28" y1="42" x2="36" y2="54" ${sw}/><line x1="5" y1="18" x2="14" y2="18" stroke="${c}" stroke-width="3" opacity=".5"/><line x1="42" y1="18" x2="51" y2="18" stroke="${c}" stroke-width="3" opacity=".5"/>`,
+    row:`<circle cx="13" cy="13" r="4" stroke="${c}" stroke-width="2"/><line x1="13" y1="17" x2="19" y2="36" ${sw}/><line x1="15" y1="24" x2="4" y2="28" ${sw}/><line x1="15" y1="24" x2="40" y2="24" ${sw}/><line x1="40" y1="24" x2="44" y2="34" ${sw}/><line x1="19" y1="36" x2="11" y2="52" ${sw}/><line x1="19" y1="36" x2="31" y2="48" ${sw}/><circle cx="47" cy="34" r="5" fill="${c}" opacity=".35"/>`,
+    barbell_row:`<circle cx="11" cy="14" r="4" stroke="${c}" stroke-width="2"/><line x1="11" y1="18" x2="17" y2="36" ${sw}/><line x1="13" y1="25" x2="3" y2="29" ${sw}/><line x1="13" y1="25" x2="38" y2="25" ${sw}/><line x1="17" y1="36" x2="9" y2="52" ${sw}/><line x1="17" y1="36" x2="29" y2="48" ${sw}/><line x1="34" y1="23" x2="50" y2="23" stroke="${c}" stroke-width="3" opacity=".5"/><rect x="32" y="20" width="5" height="8" rx="1.5" fill="${c}" opacity=".35"/><rect x="47" y="20" width="5" height="8" rx="1.5" fill="${c}" opacity=".35"/>`,
+    curl:`<circle cx="28" cy="9" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="13" x2="28" y2="34" ${sw}/><line x1="28" y1="20" x2="18" y2="30" ${sw}/><line x1="28" y1="20" x2="42" y2="26" ${sw}/><line x1="42" y1="26" x2="38" y2="12" ${sw}/><line x1="28" y1="34" x2="20" y2="50" ${sw}/><line x1="28" y1="34" x2="36" y2="50" ${sw}/><circle cx="36" cy="11" r="4" fill="${c}" opacity=".4"/>`,
+    leg_press:`<circle cx="9" cy="22" r="4" stroke="${c}" stroke-width="2"/><line x1="9" y1="26" x2="13" y2="42" ${sw}/><line x1="11" y1="31" x2="3" y2="35" ${sw}/><line x1="11" y1="31" x2="28" y2="25" ${sw}/><line x1="28" y1="25" x2="42" y2="16" ${sw}/><line x1="42" y1="16" x2="47" y2="28" ${sw}/><line x1="13" y1="42" x2="7" y2="54" ${sw}/><line x1="13" y1="42" x2="22" y2="52" ${sw}/><rect x="41" y="11" width="12" height="8" rx="2" fill="${c}" opacity=".25"/>`,
+    goblet_squat:`<circle cx="28" cy="7" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="11" x2="28" y2="30" ${sw}/><line x1="28" y1="18" x2="19" y2="24" ${sw}/><line x1="28" y1="18" x2="37" y2="24" ${sw}/><line x1="19" y1="24" x2="22" y2="30" ${sw}/><line x1="37" y1="24" x2="34" y2="30" ${sw}/><line x1="28" y1="30" x2="18" y2="52" ${sw}/><line x1="28" y1="30" x2="38" y2="52" ${sw}/><rect x="23" y="22" width="10" height="7" rx="2" stroke="${c}" stroke-width="1" opacity=".5"/>`,
+    lunge:`<circle cx="22" cy="7" r="4" stroke="${c}" stroke-width="2"/><line x1="22" y1="11" x2="22" y2="30" ${sw}/><line x1="22" y1="19" x2="12" y2="25" ${sw}/><line x1="22" y1="19" x2="32" y2="25" ${sw}/><line x1="22" y1="30" x2="10" y2="52" ${sw}/><line x1="22" y1="30" x2="40" y2="38" ${sw}/><line x1="40" y1="38" x2="42" y2="54" ${sw}/>`,
+    leg_curl:`<circle cx="11" cy="11" r="4" stroke="${c}" stroke-width="2"/><line x1="11" y1="15" x2="15" y2="30" ${sw}/><line x1="13" y1="21" x2="3" y2="25" ${sw}/><line x1="15" y1="30" x2="7" y2="44" ${sw}/><line x1="15" y1="30" x2="42" y2="30" ${sw}/><line x1="42" y1="30" x2="46" y2="14" ${sw}/><line x1="46" y1="14" x2="52" y2="14" stroke="${c}" stroke-width="3" opacity=".5"/>`,
+    leg_ext:`<circle cx="11" cy="11" r="4" stroke="${c}" stroke-width="2"/><line x1="11" y1="15" x2="15" y2="30" ${sw}/><line x1="13" y1="21" x2="3" y2="25" ${sw}/><line x1="15" y1="30" x2="7" y2="44" ${sw}/><line x1="15" y1="30" x2="38" y2="30" ${sw}/><line x1="38" y1="30" x2="50" y2="44" ${sw}/><circle cx="51" cy="44" r="4" fill="${c}" opacity=".4"/>`,
+    hip_thrust:`<circle cx="13" cy="24" r="4" stroke="${c}" stroke-width="2"/><line x1="13" y1="28" x2="19" y2="42" ${sw}/><line x1="15" y1="33" x2="4" y2="33" ${sw}/><line x1="13" y1="28" x2="38" y2="20" ${sw}/><line x1="38" y1="20" x2="46" y2="32" ${sw}/><line x1="46" y1="32" x2="42" y2="52" ${sw}/><line x1="19" y1="42" x2="15" y2="54" ${sw}/><rect x="27" y="17" width="14" height="6" rx="2" fill="${c}" opacity=".35"/>`,
+    calf_raise:`<circle cx="28" cy="7" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="11" x2="28" y2="32" ${sw}/><line x1="28" y1="19" x2="18" y2="25" ${sw}/><line x1="28" y1="19" x2="38" y2="25" ${sw}/><line x1="28" y1="32" x2="22" y2="44" ${sw}/><line x1="28" y1="32" x2="34" y2="44" ${sw}/><line x1="22" y1="44" x2="22" y2="54" ${sw}/><line x1="34" y1="44" x2="34" y2="54" ${sw}/><line x1="19" y1="54" x2="37" y2="54" stroke="${c}" stroke-width="2" opacity=".4"/>`,
+    plank:`<circle cx="9" cy="23" r="4" stroke="${c}" stroke-width="2"/><line x1="9" y1="27" x2="44" y2="27" ${sw}/><line x1="44" y1="27" x2="46" y2="40" ${sw}/><line x1="9" y1="27" x2="8" y2="40" ${sw}/><line x1="16" y1="27" x2="20" y2="18" ${sw}/><line x1="20" y1="18" x2="11" y2="14" ${sw}/><line x1="3" y1="40" x2="14" y2="40" stroke="${c}" stroke-width="2" opacity=".35"/><line x1="41" y1="40" x2="52" y2="40" stroke="${c}" stroke-width="2" opacity=".35"/>`,
+    pullover:`<circle cx="28" cy="13" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="17" x2="28" y2="36" ${sw}/><line x1="28" y1="24" x2="16" y2="30" ${sw}/><line x1="28" y1="24" x2="40" y2="30" ${sw}/><line x1="28" y1="24" x2="28" y2="7" ${sw}/><line x1="23" y1="7" x2="33" y2="7" stroke="${c}" stroke-width="3" opacity=".5"/><line x1="28" y1="36" x2="20" y2="50" ${sw}/><line x1="28" y1="36" x2="36" y2="50" ${sw}/>`,
+    pushup:`<circle cx="9" cy="19" r="4" stroke="${c}" stroke-width="2"/><line x1="9" y1="23" x2="28" y2="30" ${sw}/><line x1="14" y1="27" x2="8" y2="38" ${sw}/><line x1="28" y1="30" x2="46" y2="38" ${sw}/><line x1="28" y1="30" x2="32" y2="46" ${sw}/><line x1="8" y1="38" x2="8" y2="48" ${sw}/><line x1="46" y1="38" x2="46" y2="48" ${sw}/><line x1="3" y1="48" x2="14" y2="48" stroke="${c}" stroke-width="2" opacity=".35"/><line x1="41" y1="48" x2="52" y2="48" stroke="${c}" stroke-width="2" opacity=".35"/>`,
+    cardio:`<circle cx="28" cy="8" r="4" stroke="${c}" stroke-width="2"/><line x1="28" y1="12" x2="26" y2="30" ${sw}/><line x1="26" y1="20" x2="15" y2="14" ${sw}/><line x1="26" y1="20" x2="39" y2="18" ${sw}/><line x1="26" y1="30" x2="15" y2="46" ${sw}/><line x1="26" y1="30" x2="37" y2="42" ${sw}/><line x1="37" y1="42" x2="46" y2="37" ${sw}/><line x1="15" y1="46" x2="9" y2="40" ${sw}/>`,
+  };
+  const s=shapes[type]||shapes.cardio;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 56 56" fill="none">${s}</svg>`;
+}
+
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function load(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
+function todayKey(){return['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'][new Date().getDay()];}
+function weekId(){const n=new Date(),j=new Date(n.getFullYear(),0,1),w=Math.ceil((((n-j)/86400000)+j.getDay()+1)/7);return n.getFullYear()+'-W'+w;}
+
+let S={
+  day:todayKey(),week:weekId(),
+  logs:load(LOGS_KEY,{}),custom:load(CUSTOM_KEY,{}),
+  openEx:null,tab:'workout',
+  showAI:false,aiEquip:'gym',aiLoading:false,aiResult:null,aiErr:'',
+  showSettings:false,apiKey:load(KEY_KEY,'')||'',
+  saving:false,tempW:'',tempR:'',tempO:''
+};
+function setState(u){Object.assign(S,u);render();}
+function exLogs(id){return S.logs[S.week]?.[S.day]?.[id]||[];}
+function currentWorkout(){const p=PLANS[S.day],c=S.custom[S.week]?.[S.day];return(REST_DAYS.has(S.day)&&c)?{...c,isCustom:true}:p;}
+function totalSets(){return Object.values(S.logs[S.week]?.[S.day]||{}).reduce((a,s)=>a+s.length,0);}
+function completedCount(){return(currentWorkout().exercises||[]).filter(ex=>exLogs(ex.id).length>0).length;}
+function pct(){const t=(currentWorkout().exercises||[]).length;return t?Math.round(completedCount()/t*100):0;}
+
+function buildApp(){
+  const wk=currentWorkout(),dc=WC[S.day],t=(wk.exercises||[]).length,cp=completedCount(),pp=pct(),ts=totalSets();
+  const isRest=REST_DAYS.has(S.day)&&!S.custom[S.week]?.[S.day];
+  return `
+  <div style="background:linear-gradient(160deg,#0C0C1C,#0E0E24);border-bottom:2px solid #13132A;padding:20px 16px 16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-size:11px;letter-spacing:4px;color:#555568;font-family:'Barlow Condensed';margin-bottom:5px">TRAINING LOG</div>
+        <div style="font-size:38px;font-weight:900;letter-spacing:1px;line-height:1;color:${dc};font-family:'Barlow Condensed'">${DAY_FULL[S.day]}</div>
+        <div style="font-size:15px;color:#AAAAAA;margin-top:5px">${DAY_SUB[S.day]}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;letter-spacing:2px;color:#333355;font-family:'Barlow Condensed'">SEM ${S.week.split('W')[1]}</div>
+        <div style="font-size:32px;font-weight:900;line-height:1;color:${S.saving?dc:'#FFFFFF'};font-family:'Barlow Condensed'">${S.saving?'●':(t===0?'—':pp+'%')}</div>
+        ${t>0?`<div style="font-size:13px;color:#777788">${cp}/${t}</div>`:''}
+        <button data-action="openSettings" style="background:#111120;border:1px solid #222236;border-radius:20px;color:#888899;font-size:12px;padding:5px 12px;margin-top:6px;letter-spacing:1px">⚙ API</button>
+      </div>
+    </div>
+    ${t>0?`<div class="bar-track"><div class="bar-fill" style="width:${pp}%;background:${dc}"></div></div>`:''}
+    ${wk.tip?`<div style="margin-top:12px;padding:9px 13px;background:#0A0A1C;border-left:4px solid ${dc};border-radius:0 8px 8px 0"><div style="font-size:14px;color:#DDDDDD;font-style:italic">${wk.tip}</div></div>`:''}
+  </div>
+
+  <div class="scroll-x" style="padding:12px 14px;border-bottom:1px solid #0E0E1C">
+    ${DAYS.map(d=>{
+      const isAct=d===S.day,isToday=d===todayKey(),wc=WC[d];
+      const done=Object.values(S.logs[S.week]?.[d]||{}).some(s=>s.length>0),hasCust=!!S.custom[S.week]?.[d];
+      return `<button data-action="setDay" data-day="${d}" class="pill" style="background:${isAct?wc:'#0C0C1C'};border:1.5px solid ${isToday&&!isAct?wc+'66':'#181826'}">
+        <div style="font-size:13px;font-weight:900;letter-spacing:1px;color:${isAct?'#000':isToday?wc:'#AAAAAA'};font-family:'Barlow Condensed'">${d}</div>
+        <div style="font-size:11px;color:${isAct?'#00000066':'#444466'};margin-top:2px">${hasCust?'★':done?'✓':isToday?'·':''}</div>
+      </button>`;
+    }).join('')}
+  </div>
+
+  <div style="display:flex;padding:12px 14px 0;gap:8px">
+    ${[['workout','ENTRENO'],['history','HISTORIAL']].map(([v,l])=>`
+      <button data-action="setTab" data-tab="${v}" class="tab-btn" style="background:${S.tab===v?dc:'#101018'};color:${S.tab===v?'#000':'#666677'}">${l}</button>
+    `).join('')}
+  </div>
+
+  <div style="padding:14px">
+    ${S.tab==='workout'?buildWorkoutTab(wk,dc,isRest,cp,ts,pp):''}
+    ${S.tab==='history'?buildHistoryTab():''}
+  </div>
+
+  ${S.showAI?buildAIModal(dc):''}
+  ${S.showSettings?buildSettingsModal(dc):''}
+  `;
+}
+
+function buildWorkoutTab(wk,dc,isRest,cp,ts,pp){
+  if(isRest) return `
+    <div style="text-align:center;padding:36px 16px 22px">
+      <div style="font-size:56px">${S.day==='MAR'?'😴':'⚽'}</div>
+      <div style="font-size:26px;font-weight:900;margin-top:12px;color:${dc};font-family:'Barlow Condensed'">${wk.label}</div>
+      <div style="font-size:15px;color:#BBBBBB;margin-top:8px;line-height:1.65">${wk.tip}</div>
+    </div>
+    ${S.day==='MAR'?`<div style="padding:14px;background:#0C0C1C;border-radius:12px;margin-bottom:14px">
+      <div style="font-size:12px;letter-spacing:2px;color:#555566;margin-bottom:10px;font-family:'Barlow Condensed'">DESCANSO ACTIVO</div>
+      ${['Caminata 20-30 min','Estiramiento global 15 min','Foam roller si tenés','Hidratación ++','Dormir 7-8h'].map(t=>`<div style="font-size:15px;color:#AAAAAA;padding:8px 0;border-bottom:1px solid #111120">→ ${t}</div>`).join('')}
+    </div>`:''}
+    <div style="padding:16px;background:#0C0C1C;border:2px dashed ${dc}33;border-radius:14px;text-align:center">
+      <div style="font-size:15px;color:#888899;margin-bottom:12px">¿Tenés ganas de entrenar hoy igual?</div>
+      <button data-action="openAI" style="padding:14px 28px;background:${dc};border-radius:11px;color:#000;font-weight:900;font-size:16px;font-family:'Barlow Condensed';letter-spacing:1px">✦ GENERAR ENTRENAMIENTO HOY</button>
+    </div>`;
+
+  const exes=wk.exercises||[];
+  return `
+    <div style="padding:11px 14px;background:${dc}12;border:1.5px solid ${dc}22;border-radius:11px;margin-bottom:11px">
+      <div style="font-size:17px;font-weight:900;color:${dc};letter-spacing:1px;font-family:'Barlow Condensed'">${wk.label}</div>
+      ${wk.isCustom?`<div style="font-size:13px;color:${dc}88;margin-top:3px">✦ Generado especialmente para hoy</div>`:''}
+    </div>
+    ${exes.map(ex=>buildExCard(ex,dc)).join('')}
+    ${cp>0?`<div style="padding:14px;background:#0B0B1A;border:1.5px solid ${dc}22;border-radius:12px">
+      <div style="font-size:11px;letter-spacing:2px;color:#444455;margin-bottom:8px;font-family:'Barlow Condensed'">RESUMEN HOY</div>
+      <div style="display:flex;gap:24px">
+        ${[['Ejercicios',cp],['Sets totales',ts],['Completado',pp+'%']].map(([l,v])=>`<div><div style="font-size:28px;font-weight:900;color:${dc};line-height:1;font-family:'Barlow Condensed'">${v}</div><div style="font-size:13px;color:#666677">${l}</div></div>`).join('')}
+      </div>
+    </div>`:''}
+  `;
+}
+
+function buildExCard(ex,dc){
+  const logs=exLogs(ex.id),isOpen=S.openEx===ex.id,hasLogs=logs.length>0;
+  const mc=MC[ex.muscle]||'#888';
+  const ytUrl='https://www.youtube.com/results?search_query='+ex.yt;
+  return `<div class="card" style="border-color:${hasLogs?dc+'66':'#181826'}">
+    <div class="card-head" data-action="toggleEx" data-exid="${ex.id}">
+      <div style="width:52px;height:52px;background:${mc}12;border-radius:9px;border:1.5px solid ${mc}28;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        ${illus(ex.type,mc,44)}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:16px;font-weight:700;color:#FFFFFF;line-height:1.25">${ex.name}</div>
+        <div style="font-size:13px;color:#AAAAAA;margin-top:4px">
+          <span style="color:${mc}">${ex.muscle}</span>
+          <span style="margin-left:10px;color:#888899">${ex.isCardio?ex.reps:ex.sets+' series × '+ex.reps+' reps'}</span>
+        </div>
+        ${hasLogs?`<div style="font-size:13px;color:${dc};margin-top:3px;font-weight:600">✓ ${logs.length} series completadas</div>`:''}
+      </div>
+      <div style="font-size:18px;color:#333344;transform:${isOpen?'rotate(180deg)':'none'};transition:.2s;flex-shrink:0">▾</div>
+    </div>
+    ${isOpen?`<div class="ex-body up">
+      <a href="${ytUrl}" target="_blank" class="yt-btn">
+        <svg width="22" height="16" viewBox="0 0 22 16" fill="none"><rect width="22" height="16" rx="4" fill="#FF0000"/><path d="M9 4.5l7 3.5-7 3.5V4.5z" fill="white"/></svg>
+        Ver video del ejercicio en YouTube
+      </a>
+      ${ex.desc?`<div class="desc-box" style="border-left:3px solid ${mc}55">📋 ${ex.desc}</div>`:''}
+      ${logs.length>0?`<div style="margin-bottom:10px">
+        <div style="font-size:11px;letter-spacing:2px;color:#444455;margin-bottom:7px;font-family:'Barlow Condensed'">SERIES COMPLETADAS</div>
+        ${logs.map((s,i)=>`<div class="set-row">
+          <div style="font-size:13px;color:#444466;width:22px">#${i+1}</div>
+          ${s.w?`<div style="font-size:15px;font-weight:800;color:${dc}">${s.w} kg</div>`:''}
+          ${s.r?`<div style="font-size:14px;color:#DDDDDD">× ${s.r}</div>`:''}
+          ${s.o?`<div style="font-size:13px;color:#888899;flex:1;font-style:italic">"${s.o}"</div>`:''}
+          <div style="font-size:12px;color:#333344;margin-left:auto">${s.t}</div>
+          <button data-action="removeSet" data-exid="${ex.id}" data-idx="${i}" style="background:none;border:none;color:#333344;font-size:16px;padding:0 4px">×</button>
+        </div>`).join('')}
+      </div>`:''}
+      <div>
+        <div style="font-size:11px;letter-spacing:2px;color:#333344;margin-bottom:9px;font-family:'Barlow Condensed'">${ex.isCardio?'REGISTRAR':'AGREGAR SERIE'}</div>
+        <div class="set-input-row">
+          ${!ex.isCardio?`<input id="tw" type="number" inputmode="decimal" placeholder="Peso (kg)" value="${S.tempW}" data-field="w" style="width:110px">`:''}
+          <input id="tr" type="${ex.isCardio?'text':'number'}" inputmode="${ex.isCardio?'text':'numeric'}" placeholder="${ex.isCardio?'Tiempo / notas':'Repeticiones'}" value="${S.tempR}" data-field="r" style="flex:1 1 80px;min-width:80px">
+          <input id="to" type="text" placeholder="Observación (opcional)" value="${S.tempO}" data-field="o" style="flex:2 1 120px">
+          <button data-action="addSet" data-exid="${ex.id}" data-cardio="${ex.isCardio?'1':''}" class="add-btn" style="background:${dc}">+ SET</button>
+        </div>
+      </div>
+    </div>`:''}
+  </div>`;
+}
+
+function buildHistoryTab(){
+  const weeks=Object.keys(S.logs).sort().reverse();
+  if(!weeks.length) return `<div style="text-align:center;padding:50px 20px;color:#333344"><div style="font-size:40px">📋</div><div style="font-size:18px;font-weight:700;margin-top:12px">Sin historial aún</div><div style="font-size:14px;color:#555566;margin-top:6px">Completá tu primer entrenamiento para verlo acá.</div></div>`;
+  return weeks.map(wk=>`
+    <div class="hist-week">
+      <div class="hist-head"><div style="font-size:16px;font-weight:900;letter-spacing:1px;font-family:'Barlow Condensed'">SEMANA ${wk.split('W')[1]}</div><div style="font-size:12px;color:#333344">${wk}</div></div>
+      ${DAYS.filter(d=>{const dd=S.logs[wk]?.[d];return dd&&Object.values(dd).some(s=>s.length>0);}).map(d=>{
+        const wc=WC[d],cust=S.custom[wk]?.[d],plan=PLANS[d];
+        const workout=(REST_DAYS.has(d)&&cust)?cust:plan,dd=S.logs[wk][d];
+        const sc=Object.values(dd).reduce((a,s)=>a+s.length,0);
+        return `<div class="hist-day">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:15px;font-weight:800;color:${wc};font-family:'Barlow Condensed'">${DAY_FULL[d]} ${cust?'★':''}</div>
+            <div style="font-size:13px;color:#555566">${Object.keys(dd).length} ej · ${sc} sets</div>
+          </div>
+          ${Object.entries(dd).map(([exId,sets])=>{
+            if(!sets.length) return '';
+            const ex=(workout?.exercises||[]).find(e=>e.id===exId);
+            if(!ex) return '';
+            const mc=MC[ex.muscle]||'#888';
+            return `<div style="padding-left:12px;border-left:2px solid ${mc}33;margin-bottom:7px">
+              <div style="font-size:13px;color:#AAAAAA">${ex.name}</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:3px">
+                ${sets.map(s=>`<span class="set-badge">${s.w?s.w+'kg × ':''}${s.r}</span>`).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+}
+
+function buildAIModal(dc){
+  return `<div class="overlay" id="aioverlay">
+    <div class="sheet up">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <div style="font-size:20px;font-weight:900;letter-spacing:1px;color:${dc};font-family:'Barlow Condensed'">GENERAR ENTRENAMIENTO</div>
+        ${!S.aiLoading?`<button data-action="closeAI" style="background:none;border:none;color:#555566;font-size:24px">×</button>`:''}
+      </div>
+      ${!S.aiResult&&!S.aiLoading?`
+        <div style="font-size:12px;letter-spacing:2px;color:#555566;margin-bottom:10px;font-family:'Barlow Condensed'">¿DÓNDE VAS A ENTRENAR?</div>
+        <div style="display:flex;gap:10px;margin-bottom:18px">
+          ${[['gym','🏋️ Gimnasio'],['home','🏠 Casa']].map(([v,l])=>`
+            <button data-action="setEquip" data-equip="${v}" class="ai-equip" style="background:${S.aiEquip===v?dc:'#111120'};border:${S.aiEquip===v?'none':'1.5px solid #222236'};color:${S.aiEquip===v?'#000':'#AAAAAA'}">${l}</button>
+          `).join('')}
+        </div>
+        ${!S.apiKey?`<div style="padding:12px 14px;background:#1A0A0A;border:1.5px solid #EF444444;border-radius:10px;margin-bottom:14px;font-size:14px;color:#EF6666;line-height:1.5">⚠ Necesitás configurar tu API Key de Anthropic. Tocá ⚙ API arriba a la derecha.</div>`:''}
+        ${S.aiErr?`<div style="color:#EF6666;font-size:14px;margin-bottom:12px">${S.aiErr}</div>`:''}
+        <button data-action="generateAI" style="width:100%;padding:16px;background:${dc};border-radius:11px;color:#000;font-weight:900;font-size:17px;font-family:'Barlow Condensed';letter-spacing:1px;opacity:${S.apiKey?1:.4}">✦ GENERAR CON IA</button>
+      `:''}
+      ${S.aiLoading?`<div style="text-align:center;padding:36px"><div class="spin" style="font-size:32px;color:${dc}">⟳</div><div style="font-size:15px;color:#AAAAAA;margin-top:12px">Armando tu entrenamiento...</div></div>`:''}
+      ${S.aiResult&&!S.aiLoading?`
+        <div style="padding:12px 14px;background:${dc}14;border:1.5px solid ${dc}30;border-radius:10px;margin-bottom:14px">
+          <div style="font-size:18px;font-weight:900;color:${dc};font-family:'Barlow Condensed'">${S.aiResult.label||''}</div>
+          <div style="font-size:14px;color:#AAAAAA;margin-top:3px">${S.aiResult.tip||''}</div>
+        </div>
+        ${(S.aiResult.exercises||[]).map(ex=>{const mc=MC[ex.muscle]||'#888';return `<div class="ai-ex-row">
+          <div style="width:48px;height:48px;background:${mc}10;border-radius:8px;border:1.5px solid ${mc}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">${illus(ex.type,mc,40)}</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#FFFFFF">${ex.name}</div>
+            <div style="font-size:13px;color:${mc};margin-top:2px">${ex.muscle} · ${ex.isCardio?ex.reps:ex.sets+'×'+ex.reps}</div>
+            ${ex.desc?`<div style="font-size:13px;color:#AAAAAA;margin-top:3px;line-height:1.5">${ex.desc}</div>`:''}
+          </div>
+        </div>`;}).join('')}
+        <div class="ai-btn-row">
+          <button data-action="regenAI" style="flex:1;padding:13px;background:#111120;border:1.5px solid #222236;border-radius:10px;color:#888899;font-weight:700;font-size:14px;font-family:'Barlow Condensed'">↺ REGENERAR</button>
+          <button data-action="saveAI" style="flex:2;padding:13px;background:${dc};border-radius:10px;color:#000;font-weight:900;font-size:15px;font-family:'Barlow Condensed'">✓ GUARDAR Y ENTRENAR</button>
+        </div>
+      `:''}
+    </div>
+  </div>`;
+}
+
+function buildSettingsModal(dc){
+  return `<div class="overlay" id="settingsoverlay">
+    <div class="sheet up">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+        <div style="font-size:20px;font-weight:900;letter-spacing:1px;color:${dc};font-family:'Barlow Condensed'">CONFIGURACIÓN</div>
+        <button data-action="closeSettings" style="background:none;border:none;color:#555566;font-size:24px">×</button>
+      </div>
+      <div style="padding:14px 0;border-bottom:1px solid #111120">
+        <div style="font-size:12px;letter-spacing:2px;color:#555566;margin-bottom:8px;font-family:'Barlow Condensed'">API KEY DE ANTHROPIC (para IA)</div>
+        <div style="font-size:14px;color:#888899;margin-bottom:10px;line-height:1.6">Conseguila gratis en <span style="color:${dc}">console.anthropic.com</span> → API Keys. Solo se guarda en tu teléfono.</div>
+        <input id="apiKeyInput" type="password" placeholder="sk-ant-..." value="${S.apiKey}" style="font-size:14px">
+        <button data-action="saveApiKey" style="margin-top:10px;padding:12px 20px;background:${dc};border-radius:9px;color:#000;font-weight:900;font-size:15px;font-family:'Barlow Condensed'">GUARDAR</button>
+      </div>
+      <div style="padding:14px 0">
+        <div style="font-size:12px;letter-spacing:2px;color:#555566;margin-bottom:10px;font-family:'Barlow Condensed'">TU PERFIL</div>
+        <div style="font-size:15px;color:#CCCCCC;line-height:2">
+          🏋️ 1.81m · 93kg → 87kg<br>🚫 Sin sentadilla con barra<br>🎯 Masa muscular · Fuerza · Cardio<br>⚽ Fútbol sábados y domingos
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('[data-action]');
+  if(!btn) return;
+  const a=btn.dataset.action;
+  if(a==='setDay') setState({day:btn.dataset.day,openEx:null,tempW:'',tempR:'',tempO:''});
+  else if(a==='setTab') setState({tab:btn.dataset.tab});
+  else if(a==='toggleEx'){const id=btn.dataset.exid;setState({openEx:S.openEx===id?null:id,tempW:'',tempR:'',tempO:''});}
+  else if(a==='addSet'){
+    const exId=btn.dataset.exid,isCardio=btn.dataset.cardio==='1';
+    const w=isCardio?'':document.getElementById('tw')?.value||'';
+    const r=document.getElementById('tr')?.value||'';
+    const o=document.getElementById('to')?.value||'';
+    if(!w&&!r) return;
+    const nl=JSON.parse(JSON.stringify(S.logs));
+    if(!nl[S.week]) nl[S.week]={};
+    if(!nl[S.week][S.day]) nl[S.week][S.day]={};
+    if(!nl[S.week][S.day][exId]) nl[S.week][S.day][exId]=[];
+    nl[S.week][S.day][exId].push({w,r,o,t:new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})});
+    save(LOGS_KEY,nl);setState({logs:nl,tempW:'',tempR:'',tempO:''});
+  }
+  else if(a==='removeSet'){
+    const exId=btn.dataset.exid,idx=parseInt(btn.dataset.idx);
+    const nl=JSON.parse(JSON.stringify(S.logs));
+    nl[S.week]?.[S.day]?.[exId]?.splice(idx,1);
+    save(LOGS_KEY,nl);setState({logs:nl});
+  }
+  else if(a==='openAI') setState({showAI:true,aiResult:null,aiErr:''});
+  else if(a==='closeAI') setState({showAI:false,aiResult:null});
+  else if(a==='setEquip') setState({aiEquip:btn.dataset.equip});
+  else if(a==='regenAI') setState({aiResult:null,aiErr:''});
+  else if(a==='generateAI'){if(S.apiKey) doGenerate(); else setState({aiErr:'Configurá tu API Key primero.'});}
+  else if(a==='saveAI'){
+    const nc=JSON.parse(JSON.stringify(S.custom));
+    if(!nc[S.week]) nc[S.week]={};
+    nc[S.week][S.day]=S.aiResult;
+    save(CUSTOM_KEY,nc);setState({custom:nc,showAI:false,aiResult:null,tab:'workout'});
+  }
+  else if(a==='openSettings') setState({showSettings:true});
+  else if(a==='closeSettings') setState({showSettings:false});
+  else if(a==='saveApiKey'){
+    const k=document.getElementById('apiKeyInput')?.value||'';
+    save(KEY_KEY,k);setState({apiKey:k,showSettings:false});
+  }
+  if(e.target.id==='aioverlay') setState({showAI:false,aiResult:null});
+  if(e.target.id==='settingsoverlay') setState({showSettings:false});
+});
+
+async function doGenerate(){
+  setState({aiLoading:true,aiErr:'',aiResult:null});
+  const muscles=new Set();
+  DAYS.forEach(d=>{
+    if(d===S.day) return;
+    const c=S.custom[S.week]?.[d],p=PLANS[d],wk=(REST_DAYS.has(d)&&c)?c:p;
+    const dd=S.logs[S.week]?.[d]||{};
+    Object.keys(dd).forEach(exId=>{const ex=(wk?.exercises||[]).find(e=>e.id===exId);if(ex&&dd[exId]?.length>0) muscles.add(ex.muscle);});
+  });
+  const eq=S.aiEquip==='gym'?'Gimnasio completo (mancuernas, barras, máquinas, cables)':'Mini gym en casa (mancuernas, banco, silla, peso corporal, sin barra)';
+  const prompt=`Sos un entrenador personal experto. Generá un entrenamiento para hoy.\nPerfil: 1.81m, 93kg, meta 87kg con masa muscular. SIN sentadilla con barra. Equipamiento: ${eq}. Músculos trabajados esta semana: ${[...muscles].join(', ')||'ninguno'}.\nGenerá 6-8 ejercicios. Respondé SOLO con JSON válido sin texto extra:\n{"label":"NOMBRE","tip":"frase motivadora","exercises":[{"id":"gen_1","name":"nombre","sets":4,"reps":"10","muscle":"Grupo","type":"tipo","desc":"como ejecutarlo","isCardio":false}]}\nTipos: bench_press,incline_press,fly,shoulder_press,lateral_raise,tricep_ext,dip,pulldown,row,barbell_row,curl,leg_press,goblet_squat,lunge,leg_curl,leg_ext,hip_thrust,calf_raise,plank,pullover,pushup,cardio`;
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':S.apiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    const text=data.content?.find(b=>b.type==='text')?.text||'';
+    const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+    if(!parsed.exercises) throw new Error('bad format');
+    setState({aiLoading:false,aiResult:parsed});
+  }catch(err){setState({aiLoading:false,aiErr:'Error: '+(err.message||'Intentá de nuevo.')});}
+}
+
+function render(){document.getElementById('app').innerHTML=buildApp();}
+render();
+</script>
+</body>
+</html>
